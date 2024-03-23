@@ -1,41 +1,37 @@
 #include <SoftwareSerial.h>
 
-SoftwareSerial mySerial(2, 3);  // RX, TX
-
-// Initialize global variables
-String inputString = "";
-unsigned short x, y, area;
-unsigned short strLength;
+#define DEBUG 0  // Enable/Disable Debugging
 
 // Configure motor pin
-const int pwmMotorA = 11;
-const int pwmMotorB = 10;
-const int leftMotorA = 9;
-const int leftMotorB = 8;
-const int rightMotorA = 7;
-const int rightMotorB = 6;
+const unsigned int pwmMotorA = 11;
+const unsigned int pwmMotorB = 10;
+const unsigned int leftMotorA = 9;
+const unsigned int leftMotorB = 8;
+const unsigned int rightMotorA = 7;
+const unsigned int rightMotorB = 6;
 
 // Adjust motor speed
-const int motorSpeed = 140;
+const unsigned int motorSpeed = 140;
+
+char buffer[64];
+const int BUFFER_SIZE = 15;
+unsigned short x, y, area;
+
+SoftwareSerial mySerial(2, 3);  // RX, TX
 
 void setup() {
-
   // Open serial communications and wait for port to open:
   Serial.begin(9600);
   Serial.println("OpenCV Bot V1.0");
 
   // Set the baud rate of (HC-05) Bluetooth module
   mySerial.begin(38400);
-  // reserve 200 bytes for the inputString:
-  inputString.reserve(200);
 
   // Setup pins
   pinMode(pwmMotorA, OUTPUT);
   pinMode(pwmMotorB, OUTPUT);
-
   pinMode(leftMotorA, OUTPUT);
   pinMode(leftMotorB, OUTPUT);
-
   pinMode(rightMotorA, OUTPUT);
   pinMode(rightMotorB, OUTPUT);
 
@@ -44,77 +40,54 @@ void setup() {
 }
 
 void loop() {
-  register byte idx = 0;
-  char buffer[50];
-
   if (mySerial.available() > 0) {
-    delay(10);
-    while (mySerial.available() && idx < 50) {
-      buffer[idx++] = mySerial.read();
+    // Wait delay to allow all data to arrive
+    for (byte i = 0; i < BUFFER_SIZE; i++) delay(1);
+
+    // Read data from the serial buffer
+    size_t index = 0;
+    while (mySerial.available() && index < BUFFER_SIZE) {
+      buffer[index++] = (char)mySerial.read();
     }
+    buffer[index] = '\0';
 
-    buffer[idx] = '\0';
-    inputString = (char*)buffer;
-    strLength = inputString.length();
-    // Serial.println(inputString);
+    // Receive Sussessfull
+    if (sscanf(buffer, "X%uY%uA%u", &x, &y, &area) != 0) {
 
-    if (inputString.substring(0, 1).equals("X")) {
-      uint8_t pos, i = 1;
-
-      while (inputString.substring(i, i + 1) != ("Y")) {
-        i++;
+      if (DEBUG) {
+        Serial.print(F("X: "));
+        Serial.print(x);
+        Serial.print(F(" | Y: "));
+        Serial.print(y);
+        Serial.print(F(" | A: "));
+        Serial.println(area);
       }
-
-      x = inputString.substring(1, i).toInt();
-      // Serial.print("X: ");
-      // Serial.println(x);
-
-      pos = i + 1;
-      while (inputString.substring(i, i + 1) != ("A")) {
-        i++;
-      }
-
-      y = inputString.substring(pos, i).toInt();
-      // Serial.print("Y: ");
-      // Serial.println(y);
-
-      area = inputString.substring(i + 1, strLength).toInt();
-      // Serial.print("Area: ");
-      // Serial.println(area);
 
       if (x < 750) {
-        Serial.println("Left");
+        Serial.println(F("Left"));
         goLeft();
-      }
-      if (x > 1100) {
-        Serial.println("Right");
+      } else if (x > 1100) {
+        Serial.println(F("Right"));
         goRight();
-      }
-      if (x >= 750 && x <= 1100) {
+      } else {
         if (area < 150) {
-          Serial.println("Forward");
+          Serial.println(F("Forward"));
           goForward();
-        }
-        if (area >= 150 && area <= 250) {
-          Serial.println("Stop");
+        } else if (area <= 250) {
+          Serial.println(F("Stop"));
           stop();
-        }
-        if (area > 250) {
-          Serial.println("Back");
+        } else {
+          Serial.println(F("Back"));
           goBack();
         }
       }
     }
   }
-
-  // all data has been sent, and the buffer is empty.
-  Serial.flush();
 }
 
 void goLeft() {
   digitalWrite(leftMotorA, LOW);
   digitalWrite(leftMotorB, HIGH);
-
   digitalWrite(rightMotorA, HIGH);
   digitalWrite(rightMotorB, LOW);
 }
@@ -122,7 +95,6 @@ void goLeft() {
 void goRight() {
   digitalWrite(leftMotorA, HIGH);
   digitalWrite(leftMotorB, LOW);
-
   digitalWrite(rightMotorA, LOW);
   digitalWrite(rightMotorB, HIGH);
 }
@@ -130,7 +102,6 @@ void goRight() {
 void goForward() {
   digitalWrite(leftMotorA, HIGH);
   digitalWrite(leftMotorB, LOW);
-
   digitalWrite(rightMotorA, HIGH);
   digitalWrite(rightMotorB, LOW);
 }
@@ -138,7 +109,6 @@ void goForward() {
 void goBack() {
   digitalWrite(leftMotorA, LOW);
   digitalWrite(leftMotorB, HIGH);
-
   digitalWrite(rightMotorA, LOW);
   digitalWrite(rightMotorB, HIGH);
 }
@@ -146,7 +116,6 @@ void goBack() {
 void stop() {
   digitalWrite(leftMotorA, LOW);
   digitalWrite(leftMotorB, LOW);
-
   digitalWrite(rightMotorA, LOW);
   digitalWrite(rightMotorB, LOW);
 }
